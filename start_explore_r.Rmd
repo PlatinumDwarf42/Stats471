@@ -1,0 +1,216 @@
+---
+title: "CrytoCurrency"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("RSQLite")
+library(dplyr)
+library(lubridate)
+library(stringr)
+library(stringi)
+library(curl)
+library(XML)
+library(jsonlite)
+library(tidyverse)
+library(tokenizers)
+## Clean workspace
+rm(list=ls())
+```
+
+```{r constants}
+TOP_500_COINS = "http://500coins.co/"
+ALL_NAMES = "https://www.cryptocompare.com/api/data/coinlist/"
+PRICE_API = "https://min-api.cryptocompare.com/data/histoday?fsym="
+START_DATE = "1451606400" ## January 1, 2016
+DATABASE_FILE = "/Users/Admin/Documents/CryroSubReddit/subreddits/CryptoCurrency/CryptoCurrency.db"
+```
+
+## Thesis
+According to r/CrytoCurrency moderation rule #3 there is to be "No Manipulation":
+  -No pumping, shilling, or FUD (fear, uncertainty, doubt).
+  -Do not use multiple sockpuppet accounts to manipulate votes to achieve a narrative.
+  -Do not solicit, complain about, or make predictions for votes.
+
+This leads to the question is it possible and can I find evidence of pumps. Posts like source 1 and 2 suggest such pumps are indeed takening place. Lets dig into the data.
+
+```{r load_data_and_clean}
+### Handle loadfrom db
+posts_data = fetch_data_from_db(START_DATE, DATABASE_FILE, 1000)
+
+
+##Handle Fetching Coin Data
+top_500_coins = fetch_top_500(10)
+top_500_coins_price_data= populate_price_data(top_500_coins)
+
+coin_data = data.frame(matrix(ncol = 10, nrow = 0))
+colnames(coin_data) = c("Coinname", "Ticker", "Coinname_Lower_Case", "Time", "Close", "High", "Low", "Open", "volumefrom", "volumeto")
+
+
+for(i in 1:length(top_500_coins_price_data)){
+
+  ticker = top_500_coins_price_data[[i]]$Ticker[1]
+  ticker_all_data = top_500_coins[(which(as.character(top_500_coins$Ticker) == ticker)),]
+  #cat(ticker_all_data$Coinname, str(i), "\n")
+  for(j in 1:length(top_500_coins_price_data[[i]]$Ticker)){
+    
+  coin_data[nrow(coin_data)+1,"Coinname"] = ticker_all_data$Coinname
+  coin_data[nrow(coin_data),"Ticker"] = top_500_coins_price_data[[i]]$Ticker[1]
+  coin_data[nrow(coin_data),"Coinname_Lower_Case"] = ticker_all_data$Coinname_Lower_Case
+  coin_data[nrow(coin_data),"Time"] = as.character(top_500_coins_price_data[[i]]$time[j])
+  coin_data[nrow(coin_data),"Close"] = top_500_coins_price_data[[i]]$close[j]
+  coin_data[nrow(coin_data),"High"] = top_500_coins_price_data[[i]]$high[j]
+  coin_data[nrow(coin_data),"Low"] = top_500_coins_price_data[[i]]$low[j]
+  coin_data[nrow(coin_data),"Open"] = top_500_coins_price_data[[i]]$open[j]
+  coin_data[nrow(coin_data),"volumefrom"] = top_500_coins_price_data[[i]]$volumefrom[j]
+  coin_data[nrow(coin_data),"volumeto"] = top_500_coins_price_data[[i]]$volumeto[j]
+  }
+
+}
+dates = seq(as.Date("2017-02-14"), as.Date("2018-02-14"), by='day')
+dates_with_data = c()
+
+analysis_by_day = data.frame(matrix(nrow=0,ncol=4))
+colnames(analysis_by_day) = c("Date", "Post Count", "Title Words", "Self Text")
+for(i in 1:length(dates)){
+  day = filter_by_day(posts_data, toString(dates[i]))
+  analysis_by_day[nrow(analysis_by_day)+1,1] = toString(dates[i])
+  words_for_day_title = c()
+  words_for_day_selftext = c()
+  for(i in nrow(day)){
+    words_for_day_title = c(words_for_day_title, tokenize_words(day[i,]$title))
+    words_for_day_selftext = c(words_for_day_selftext, tokenize_words(day[i,]$selftext))
+  }
+  analysis_by_day[nrow(analysis_by_day),2] = nrow(day)
+  
+  if(length(words_for_day_title) > 0 & length(words_for_day_selftext) > 0){
+    analysis_by_day[nrow(analysis_by_day),3] = words_for_day_title
+    analysis_by_day[nrow(analysis_by_day),4] = words_for_day_selftext
+  }
+}
+
+
+head(posts_data)
+```
+
+
+```{r connect_to_db}
+fetch_data_from_db=function(start_date, db_file, limit=-1){
+  # connect to the sqlite file
+  con = dbConnect(SQLite(), dbname=db_file)
+  dbListTables(con)
+  dbListFields(con, "submissions")
+  
+  ##Fetch all posts from January 1, 2016 to present date
+  if(limit > 0){
+    data = dbGetQuery(con, paste("select created,author,title,selftext,score,textlen,num_comments,flair_text from submissions where created >=", start_date, " LIMIT ", limit))
+  }else{
+   data = dbGetQuery(con, paste("select created,author,title,selftext,score,textlen,num_comments,flair_text from submissions where created >=", start_date))
+  }
+  
+  dbDisconnect(con)
+  
+  ##Convert secounds to day
+  data$created = ms_to_date(data$created, timezone="America/Los_Angeles")
+  data$created = trunc(data$created ,"days")
+  return(data)
+}
+
+```
+
+## Utility Functions for R
+```{r utils, echo=FALSE}
+## Filter by data
+filter_by_day=function(data, date){
+  return(subset(data, data$created >= as.POSIXct(paste(date,' 00:00')) & data$created <= as.POSIXct(paste(date, ' 11:59'))))
+}
+
+filter_by_instance_of_text_in_title=function(data, word){
+    return(subset(data, grepl(toupper(word), title) | grepl(tolower(word), title)))
+}
+
+filter_by_instance_of_text_in_maintext=function(data, word){
+    return(subset(data, grepl(toupper(word), selftext) | grepl(tolower(word), selftext)))
+}
+
+
+filter_by_instance_of_text=function(data, word){
+    return(subset(data, grepl(toupper(word), selftext) | grepl(tolower(word), selftext | grepl(toupper(word), title) | grepl(tolower(word), title))))
+}
+
+ms_to_date = function(ms, t0="1970-01-01", timezone) {
+        ## @ms: a numeric vector of milliseconds (big integers of 13 digits)
+        ## @t0: a string of the format "yyyy-mm-dd", specifying the date that
+        ##      corresponds to 0 millisecond
+        ## @timezone: a string specifying a timezone that can be recognized by R
+        ## return: a POSIXct vector representing calendar dates and times        
+        sec = ms
+        return(as.POSIXct(sec, origin=t0, tz=timezone))
+}
+
+```
+
+## Webcall to Fetch top coins dynamically
+```{r top_coins, echo=FALSE}
+##Fetch in top 500 names
+fetch_top_500 = function(top_num=500){
+  raw_web_page = gsub("\"", " ", readLines(TOP_500_COINS))
+  name_parse = str_match_all(raw_web_page, "(?s)(?<=<h1>)(.+?)(?=</h1>)")
+  name_lower_case = list()
+  name = list()
+  for(i in name_parse){
+    if(!is.na(i[1])){
+      name = c(name, i[1])
+      name_lower_case = c(name_lower_case, tolower(i[1]))
+    }
+  }
+  
+  if(top_num < 500){
+    name_lower_case = name_lower_case[seq(1,top_num)]
+  }
+  ## Fetch all coin names to match up tickers
+  raw_all_names = fromJSON(ALL_NAMES)
+  df = data.frame("Coinname"=character(), "Ticker"=character(), "Coinname_Lower_Case"=character(), stringsAsFactors=FALSE)
+  for(i in raw_all_names$Data){
+    if(tolower(i$CoinName) %in% name_lower_case){
+      df[nrow(df)+1,] = c(i$CoinName, i$Symbol, tolower(i$CoinName))
+    }
+  }
+  return(df)
+}
+
+```
+
+
+## Function for Population Historical Price Data
+```{r historical_data, echo=FALSE}
+##Populate coins with historical data
+populate_price_data=function(coins, verbose=FALSE){
+  prices_coins = vector("list", nrow(coins))
+  for(i in 1:nrow(coins)){
+    if(verbose){
+      print(paste(coins[i,]$Ticker, i, nrow(coins)))
+    }
+    data = fromJSON(paste(PRICE_API, coins[i,]$Ticker, "&tsym=USD&limit=800&e=CCCAGG", sep = ""))
+    
+    ##Vaildate response to avoid errors
+    if(grepl("Success", data$Response)){
+      data$Data$time = trunc(ms_to_date(data$Data$time,timezone="America/Los_Angeles"), "days")
+      data$Data = cbind(data$Data,  "Ticker"=rep(coins[i,]$Ticker, nrow(data$Data)))
+        prices_coins[[i]] = c(coins[i,]$Ticker, data$Data)
+        
+        if(verbose){
+         print(prices_coins[[i]])
+        }
+    }
+  }
+  return(prices_coins)
+}
+
+```
+
+## Sources of Evidence
+https://www.reddit.com/r/CryptoCurrency/comments/7ubyl1/a_look_inside_the_account_of_a_paid_shillbot/
+https://www.reddit.com/r/CryptoCurrency/comments/7xkm0z/i_was_a_paid_cryptocurrency_shill_iam_here_to/
+https://www.reddit.com/r/CryptoCurrency/comments/82k3ie/shill_farm_exposed_an_example_of_shilling_in/

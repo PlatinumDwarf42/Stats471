@@ -1,0 +1,221 @@
+---
+title: "STATS 471: Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("RSQLite")
+require(jsonlite)
+## Clean workspace
+#rm(list=ls())
+```
+
+```{r constants}
+TOP_500_COINS = "http://500coins.co/"
+ALL_NAMES = "https://www.cryptocompare.com/api/data/coinlist/"
+PRICE_API = "https://min-api.cryptocompare.com/data/histoday?fsym="
+START_DATE = 1483228800 # 1/1/2017
+END_DATE = 1514764800  # 1/1/2018
+DATABASE_FILE = "Data/CryptoCurrency.db" 
+
+##Top 10 coins at start 1/1/2017
+TOP_COINS = c(c("eth", "ethereum"), c("xrp","ripple"),c("ltc", "litecoin"),c("xmr", "monero"),c("etc", "ethereum classic"),c("dash", "dash"),c("maid", "maidsafecoin"), c("rep", "augur"), c("steem", "steem"), c("xem", "nem"))
+```
+
+```{r, load_data}
+
+## Loods all submissions data by day
+con = dbConnect(SQLite(), dbname=DATABASE_FILE)
+
+data_all_submissions = cbind(dbGetQuery(con, paste("SELECT * FROM submissions WHERE created >",START_DATE, "AND created < ", START_DATE+60*60*24)), "day"=1)
+
+data_all_comments =  cbind(dbGetQuery(con, paste("SELECT * FROM comments WHERE created >",START_DATE, "AND created < ", START_DATE+60*60*24)), "day"=1)
+
+for(i in 2:365){
+  current_date_start = START_DATE + 60*60*24*i
+  current_date_end = START_DATE + 60*60*24*(i+1)
+  
+  ##Submissions
+  day_data_submissions = dbGetQuery(con, paste("SELECT * FROM submissions WHERE created >",current_date_start, "AND created < ", current_date_end))
+  day_data_submissions = cbind(day_data_submissions, "day"=rep(i, nrow(day_data_submissions)))
+  data_all_submissions = rbind(data_all_submissions, day_data_submissions)
+  
+  ##Comments
+  day_data_comments = dbGetQuery(con, paste("SELECT * FROM comments WHERE created >",current_date_start, "AND created < ", current_date_end))
+  day_data_comments = cbind(day_data_comments, "day"=rep(i, nrow(day_data_comments)))
+  data_all_comments = rbind(data_all_comments, day_data_comments)
+  
+
+  print(c(i, current_date_start, current_date_end, nrow(data_all_submissions), nrow(data_all_comments)))
+
+}
+
+
+
+```
+
+
+```{r, control_posts_stats}
+
+day_data_stats_submissions = data.frame(c(NA), c(NA),c(NA),c(NA),c(NA),c(NA),c(NA),c(NA),c(NA))
+colnames(day_data_stats_submissions) = c("Coin", "Day", "Total_Number_Submissions", "Total_Submissions_Mean_Score", "Total_Submissions_Mean_Length", "Total_Submissions_Number_Different_Authors", "Total_Submissions_Mean_Number_Of_Comments", "Total_Submissions_Num_Fomo", "Total_Submissions_Num_Fud")
+
+
+
+for(i in 1:365){
+  day_data = data_all_submissions[which(data_all_submissions$day == i),]
+  
+  num_fomo = length(grep('fomo', tolower(day_data$selftext), value=TRUE)) +  length(grep('fomo', tolower(day_data$title), value=TRUE))
+  
+  num_fud = length(grep('fud', tolower(day_data$selftext), value=TRUE)) +  length(grep('fud', tolower(day_data$title), value=TRUE))
+  
+  day_data_stats_submissions = rbind(day_data_stats_submissions, c("Control", i, nrow(day_data), mean(day_data$score),  mean(day_data$textlen), length(unique(day_data$author)), mean(day_data$num_comments), num_fomo, num_fud))
+}
+
+tail(day_data_stats_submissions)
+
+```
+
+```{r, control_comments_stats}
+
+day_data_stats_comments = data.frame(c(NA),c(NA),c(NA),c(NA),c(NA),c(NA), c(NA), c(NA))
+colnames(day_data_stats_comments) = c("Coin", "Day", "Total_Number_Comments", "Total_Mean_Comment_Length", "Total_Comment_Different_Authors", "Total_Mean_Comment_Score", "Total_Comment_Num_Fomo", "Total_Comment_Num_Fud")
+
+
+
+for(i in 1:365){
+  day_data = data_all_comments[which(data_all_comments$day == i),]
+  
+  num_fomo = length(grep('fomo', tolower(day_data$body), value=TRUE))
+  
+  num_fud = length(grep('fud', tolower(day_data$body), value=TRUE))
+  
+day_data_stats_comments = rbind(day_data_stats_comments, c("Control", i, nrow(day_data), mean(day_data$textlen), length(unique(day_data$author)), mean(day_data$score), num_fomo, num_fud))
+}
+
+tail(day_data_stats_comments)
+```
+
+```{r, coin_posts_stats}
+day_data_stats_submissions_coins = data.frame(c(NA),c(NA),c(NA),c(NA),c(NA),c(NA),c(NA),c(NA),c(NA))
+colnames(day_data_stats_submissions_coins) = c("Coin", "Day", "Total_Coin_Number_Submissions", "Total_Coin_Mean_Submissions_Score", "Total_Coin_Mean_Submissions_Length", "Total_Coin_Number_Submissions_Different_Authors", "Total_Coin_Mean_Submissions_Number_Of_Comments", "Total_Coin_Submissions_Num_Fomo", "Total_Coin_Submissions_Num_Fud")
+
+
+
+for(i in 1:365){
+  print(i)
+  for(j in seq(1, length(TOP_COINS), 2)){
+    
+  day_data = data_all_submissions[which(data_all_submissions$day == i),]
+  
+  day_data_temp = day_data[grep(TOP_COINS[j], tolower(day_data$selftext)),]
+  day_data_temp_2 = day_data[grep(TOP_COINS[j+1], tolower(day_data$selftext)),]
+  
+  day_data_temp_3 = day_data[grep(TOP_COINS[j], tolower(day_data$title)),]
+  day_data_temp_4 = day_data[grep(TOP_COINS[j+1], tolower(day_data$title)),]
+  
+  day_data = c(day_data_temp, day_data_temp_2, day_data_temp_3, day_data_temp_4)
+  
+  num_fomo = length(grep('fomo', tolower(day_data$selftext), value=TRUE)) +  length(grep('fomo', tolower(day_data$title), value=TRUE))
+
+  num_fud = length(grep('fud', tolower(day_data$selftext), value=TRUE)) +  length(grep('fud', tolower(day_data$title), value=TRUE))
+
+  day_data_stats_submissions_coins = rbind(day_data_stats_submissions_coins, c(TOP_COINS[j+1], i, length(day_data$idint), mean(day_data$score),  mean(day_data$textlen), length(unique(day_data$author)), mean(day_data$num_comments), num_fomo, num_fud))
+  }
+}
+tail(day_data_stats_submissions_coins)
+```
+
+```{r, coin_comment_stats, warning=FALSE}
+day_data_stats_comment_coins = data.frame(c(NA),c(NA),c(NA),c(NA),c(NA),c(NA),c(NA),c(NA))
+colnames(day_data_stats_comment_coins) = c("Coin", "Day", "Total_Number_Coin_Comments", "Total_Mean_Coin_Comment_Length", "Total_Number_Coin_Comments_Different_Authors", "Total_Mean_Coin_Comment_Score", "Total_Coin_Num_Fomo", "Total_Coin_Num_Fud")
+
+
+for(i in 1:365){
+  print(i)
+  for(j in seq(1, length(TOP_COINS), 2)){
+    
+  day_data = data_all_comments[which(data_all_comments$day == i),]
+  
+  day_data_temp = day_data[grep(TOP_COINS[j], tolower(day_data$body)),]
+  day_data_temp_2 = day_data[grep(TOP_COINS[j+1], tolower(day_data$body)),]
+
+  day_data = c(day_data_temp, day_data_temp_2)
+  
+  num_fomo = length(grep('fomo', tolower(day_data$body), value=TRUE))
+  
+  num_fud = length(grep('fud', tolower(day_data$body), value=TRUE))
+
+  day_data_stats_comment_coins = rbind(day_data_stats_comment_coins, c(TOP_COINS[j+1], i, length(day_data$idint), mean(nchar(day_data$body)), length(unique(day_data$author)), mean(day_data$score), num_fomo, num_fud))
+  }
+}
+tail(day_data_stats_comment_coins)
+```
+
+```{r, combine}
+total_day_data = data.frame(c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA))
+
+colnames(total_day_data) = c("Coin", "Day", "Total_Number_Comments", "Total_Mean_Comment_Length", "Total_Comment_Different_Authors", "Total_Mean_Comment_Score", "Total_Comment_Num_Fomo", "Total_Comment_Num_Fud", "Total_Number_Submissions", "Total_Submissions_Mean_Score", "Total_Submissions_Mean_Length", "Total_Submissions_Number_Different_Authors", "Total_Submissions_Mean_Number_Of_Comments", "Total_Submissions_Num_Fomo", "Total_Submissions_Num_Fud", "Total_Number_Coin_Comments", "Total_Mean_Coin_Comment_Length","Total_Number_Coin_Comments_Different_Authors", "Total_Mean_Coin_Comment_Score", "Total_Coin_Comment_Num_Fomo", "Total_Coin_Comment_Num_Fud","Total_Coin_Number_Submissions", "Total_Coin_Mean_Submissions_Score", "Total_Coin_Mean_Submissions_Length", "Total_Coin_Number_Submissions_Different_Authors", "Total_Coin_Mean_Submissions_Number_Of_Comments", "Total_Coin_Submissions_Num_Fomo", "Total_Coin_Submissions_Num_Fud")
+
+day_data_stats_submissions = day_data_stats_submissions[c(-1),]
+day_data_stats_comments = day_data_stats_comments[c(-1),]
+
+day_data_stats_submissions_coins = day_data_stats_submissions_coins[c(-1),]
+day_data_stats_comment_coins = day_data_stats_comment_coins[c(-1),]
+
+for(i in 1:365){
+  print(i)
+  for(j in seq(1, length(TOP_COINS), 2)){
+    control_submissions = day_data_stats_submissions[day_data_stats_submissions$Day == i,]
+    control_comments = day_data_stats_comments[day_data_stats_comments$Day == i,]
+    
+    coin_comments = day_data_stats_comment_coins[day_data_stats_comment_coins$Day == i,]
+    coin_comments = coin_comments[coin_comments$Coin == TOP_COINS[j+1],]
+    
+    coin_submissions= day_data_stats_submissions_coins[day_data_stats_submissions_coins$Day == i,]
+    coin_submissions = coin_submissions[coin_submissions$Coin == TOP_COINS[j+1],]
+     
+total_day_data = rbind(total_day_data, c(TOP_COINS[j+1], i, control_comments$Total_Number_Comments, control_comments$Total_Mean_Comment_Length, control_comments$Total_Comment_Different_Authors, control_comments$Total_Mean_Comment_Score, control_comments$Total_Comment_Num_Fomo, control_comments$Total_Comment_Num_Fud, control_submissions$Total_Number_Submissions, control_submissions$Total_Submissions_Mean_Score, control_submissions$Total_Submissions_Mean_Length, control_submissions$Total_Submissions_Number_Different_Authors, control_submissions$Total_Submissions_Mean_Number_Of_Comments,control_submissions$Total_Submissions_Num_Fomo, control_submissions$Total_Submissions_Num_Fud,coin_comments$Total_Number_Coin_Comments, coin_comments$Total_Mean_Coin_Comment_Length, coin_comments$Total_Number_Coin_Comments_Different_Authors,coin_comments$Total_Mean_Coin_Comment_Score, coin_comments$Total_Coin_Num_Fomo, coin_comments$Total_Coin_Num_Fud,coin_submissions$Total_Coin_Number_Submissions, coin_submissions$Total_Coin_Mean_Submissions_Score, coin_submissions$Total_Coin_Mean_Submissions_Length, coin_submissions$Total_Coin_Number_Submissions_Different_Authors, coin_submissions$Total_Coin_Submissions_Num_Fud,coin_submissions$Total_Coin_Number_Submissions, coin_submissions$Total_Coin_Mean_Submissions_Score, coin_submissions$Total_Coin_Mean_Submissions_Length, coin_submissions$Total_Coin_Number_Submissions_Different_Authors, coin_submissions$Total_Coin_Mean_Submissions_Number_Of_Comments, coin_submissions$Total_Coin_Submissions_Num_Fomo, coin_submissions$Total_Coin_Submissions_Num_Fud))
+  }
+ 
+}
+
+##Replace zeros and remove day 0 and day 1 as they are inaccurate
+replace(total_day_data, is.na(total_day_data), 0)
+total_day_data = total_day_data[-c(1:11),]
+
+```
+
+
+```{r, response_variable}
+#Range
+  #1483228800
+  #1514764800
+all_day_data = data.frame(c(NA), c(NA), c(NA), c(NA),c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA), c(NA))
+
+colnames(all_day_data) = c("Coin", "Day", "Close", "High", "Low", "Open", "Total_Number_Comments", "Total_Mean_Comment_Length", "Total_Comment_Different_Authors", "Total_Mean_Comment_Score", "Total_Comment_Num_Fomo", "Total_Comment_Num_Fud", "Total_Number_Submissions", "Total_Submissions_Mean_Score", "Total_Submissions_Mean_Length", "Total_Submissions_Number_Different_Authors", "Total_Submissions_Mean_Number_Of_Comments", "Total_Submissions_Num_Fomo", "Total_Submissions_Num_Fud", "Total_Number_Coin_Comments", "Total_Mean_Coin_Comment_Length","Total_Number_Coin_Comments_Different_Authors", "Total_Mean_Coin_Comment_Score", "Total_Coin_Comment_Num_Fomo", "Total_Coin_Comment_Num_Fud","Total_Coin_Number_Submissions", "Total_Coin_Mean_Submissions_Score", "Total_Coin_Mean_Submissions_Length", "Total_Coin_Number_Submissions_Different_Authors", "Total_Coin_Mean_Submissions_Number_Of_Comments", "Total_Coin_Submissions_Num_Fomo", "Total_Coin_Submissions_Num_Fud")
+
+for(j in seq(1, length(TOP_COINS), 2)){
+  print(j)
+  price_data = fromJSON(paste(PRICE_API, toupper(TOP_COINS[j]), "&tsym=BTC&limit=365&e=CCCAGG&toTs=1514764800", sep = ""))$Data
+  price_data = price_data[-c(1,6,7)]
+  price_data = cbind(seq(1:366), price_data)
+  price_data = cbind(replicate(366, TOP_COINS[j+1]), price_data)
+  colnames(price_data) = c("Coin", "Day", "Close", "High", "Low", "Open")
+  
+  for(i in 2:365){
+    day_data = total_day_data[as.integer(total_day_data$Day) == i & total_day_data$Coin == TOP_COINS[j+1],]
+    day_price = price_data[as.integer(price_data$Day) == i,]
+    all_data = cbind(day_price, day_data[-c(1,2)])
+    all_day_data = rbind(all_day_data, all_data)
+  }
+}
+
+all_day_data = all_day_data[c(1),]
+View(all_day_data)
+
+write.csv(all_day_data, "all_coin_data.csv")
+```
+
+

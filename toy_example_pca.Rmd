@@ -1,0 +1,77 @@
+---
+title: "PCA and Logistic Classifier Example"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+## Produce Group #1
+x1 = rnorm(100, 1, .75)+1
+y1 = rnorm(100, 1, .75)+1
+
+## Produce Group #2
+x2 = rnorm(100,1, .5)-1
+y2 = rnorm(100,1, .5)-1
+
+## Add some noise to dataframe
+noise = rnorm(200,1, .5)
+
+## Plot two groups to verify
+plot(x1,y1,col="red", ylim=c(-5,5), xlim=c(-5,5))
+points(x2,y2,col="blue")
+
+
+###Bind them all to dataframe
+d = data.frame(c(0))
+d = cbind(d, c(x1,x2))
+d = cbind(d, c(y1,y2))
+d = cbind(d, noise)
+d = cbind(d, c(rep(1,100),rep(0,100)))
+
+##Remove default one and label cols
+d = d[,-1]
+colnames(d) = c("x", "y", "noise", "label")
+
+
+##Get prinicple components
+Sigma = cor(d[,-4])
+evec = eigen(Sigma)$vectors 
+eval = eigen(Sigma)$values
+
+pr.out = prcomp(d[,-4],  scale=TRUE)
+
+pve = eval/sum(eval)
+yvec = cumsum(pve)
+
+##Find 80% cut off
+plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
+
+##Lets just take one about 80%
+
+##Compute the data value for princile component #1 at each data point
+output = data.matrix(d[,-4])%*%matrix(pr.out$rotation[,1], nrow=3, ncol=1)
+
+
+##We have now reduced two varibles down to one
+## Build classifier with glm
+
+##Label ~ pca variable
+model = glm(d[,4]~output)
+summary(model)
+
+plot(d$x,d$label)
+model_guess = model$coefficients[1]+model$coefficients[2]*output
+
+plot(model_guess[1:100], ylim=c(0,1), xlim=c(0,100), col="red")
+points(model_guess[100:200], col="blue")
+
+##From plot we can see the model correctly classifed the first 100 in group 1 and 2nd 100 in group 2. The cut off value if .5
+
+cat("Accuracy:", mean(mean(model_guess[1:100] > .5),mean(model_guess[100:200] < .5)))
+
+
+
+```
