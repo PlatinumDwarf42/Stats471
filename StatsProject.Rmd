@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 all_coin_data = read.csv("all_coin_data.csv")
 
+TOP_COINS = c(c("eth", "ethereum"), c("xrp","ripple"),c("ltc", "litecoin"),c("xmr", "monero"),c("etc", "ethereum classic"),c("dash", "dash"),c("maid", "maidsafecoin"), c("rep", "augur"), c("steem", "steem"), c("xem", "nem"))
 ```
 
 #Playing With Data
@@ -256,12 +257,134 @@ Definitely looking like those humps mean something. Fud Submissions seem to be a
 Once again, you see that the 20 day one you don't see that hump, but as soon as you widen the scope you can see that this is a hump.
 
 After looking
+
+```{r, util}
+
+##Helps to build the binary responses
+build_response = function(all_coin_data){
+  row_data_response = c()
+  for(i in 3:365){
+    for(j in seq(2, length(TOP_COINS), 2)){
+      day_curr = which(all_coin_data$Day.1 == i & all_coin_data$Coin == TOP_COINS[j])
+      day_before = which(all_coin_data$Day.1 == (i-1) & all_coin_data$Coin == TOP_COINS[j])
+      if((all_coin_data$Close[day_curr]-all_coin_data$Close[day_before]) > 0){
+          #print("Went up")
+          row_data_response = c(row_data_response, 1)
+      }else{
+          #print("Went down")
+          row_data_response = c(row_data_response, 0)
+      }
+    }
+  }
+  row_data_response = c(rep(1, 10),row_data_response)
+  return(row_data_response)
+}
+
+```
+
 ##Fitting A Model
 ```{r, FittingPCR}
-pcr.fit = pcr(Close~.-Day-High-Low-Open, data=all_coin_data, scale=TRUE,validation="CV")
-pcr.fit
-summary(pcr.fit)
-validationplot(pcr.fit,val.type="MSEP")
-pcr.fit$loadings
+##Fill NA with zero
+all_coin_data[is.na(all_coin_data)] <- 0
+
+##Exclude the price data
+data_refined = all_coin_data[,-c(1,c(4:7))]
+
+##Exclude the coin factor
+Sigma = cor(data_refined[,-1])
+
+evec = eigen(Sigma)$vectors 
+eval = eigen(Sigma)$values
+
+##Exclude the coin factor
+pr.out = prcomp(data_refined[,-1],  scale=TRUE)
+pve = eval/sum(eval)
+yvec = cumsum(pve)
+
+##Find 80% cut off
+plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
+
+##Lets take first 5 about 80%
+
+##Compute the data value for principle component #1 at each data point, exclude coin
+pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
+
+pr.out$rotation[,2]
+response = build_response(all_coin_data)
+model = glm(response~pca_var)
+
+summary(model)
+
+##
+outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
+
+as_binary = as.integer(outputs > .5)
+
+cat("Accuracy:", mean(as_binary == response))
+
+mean(response)
+plot(as_binary)
+
+```
+
+
+```{r, bootstrap}
+##Bootstrap to try to see the standard error of our estimator
+## It looks great to see what we are ~53% correct
+## But looking at # of times it says up it is very few.
+## Looking at percent of times it says yes and it is actually yes is more showing
+## This is near 50% or random
+
+overall_acc = c()
+up_correct = c()
+num_predi_correct = c()
+for(i in 1:50){
+  ##Fill NA with zero
+  temp_data = all_coin_data[sample(nrow(all_coin_data), replace = TRUE, nrow(all_coin_data)),]
+  temp_data[is.na(temp_data)] <- 0
+
+  ##Exclude the price data
+  data_refined = temp_data[,-c(1,c(4:7))]
+
+  ##Exclude the coin factor
+  Sigma = cor(data_refined[,-1])
+
+  evec = eigen(Sigma)$vectors 
+  eval = eigen(Sigma)$values
+
+  ##Exclude the coin factor
+  pr.out = prcomp(data_refined[,-1],  scale=TRUE)
+  pve = eval/sum(eval)
+  yvec = cumsum(pve)
+
+  ##Lets take first 5 about 80%
+
+  ##Compute the data value for principle component #1 at each data point, exclude coin
+  pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
+
+  response = build_response(all_coin_data)
+  model = glm(response~pca_var)
+
+  summary(model)
+
+  outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
+
+  as_binary = as.integer(outputs > .5)
+
+  #cat("\nAccuracy:", mean(as_binary == response), "# Predicted up:", sum(as_binary))
+  up = which(response == 1)
+  overall_acc = c(overall_acc, mean(as_binary == response))
+  pred_up = which(as_binary == 1) 
+  up_correct = c(up_correct, mean(pred_up%in%up))
+  num_predi_correct = c(num_predi_correct, sum(pred_up%in%up))
+  #cat("\n\tPercent Predicted up Successfully:", mean(pred_up%in%up))
+  if(i %% 10 == 0){
+    print(i)
+  }
+}
+
+cat("Overall Correct:", mean(overall_acc))
+cat("\nCorrect up that were up:", mean(up_correct, na.rm = TRUE))
+hist(100*up_correct, breaks=50, main="Percent Correct Out of Up Predictions", xlab="Percent")
 ```
 
