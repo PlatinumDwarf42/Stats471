@@ -261,10 +261,11 @@ After looking
 ```{r, util}
 
 ##Helps to build the binary responses
-build_response = function(all_coin_data){
+build_response = function(all_coin_data, coins){
   row_data_response = c()
   for(i in 3:365){
-    for(j in seq(2, length(TOP_COINS), 2)){
+    for(j in seq(2, length(coins), 2)){
+      print(j)
       day_curr = which(all_coin_data$Day.1 == i & all_coin_data$Coin == TOP_COINS[j])
       day_before = which(all_coin_data$Day.1 == (i-1) & all_coin_data$Coin == TOP_COINS[j])
       if((all_coin_data$Close[day_curr]-all_coin_data$Close[day_before]) > 0){
@@ -276,7 +277,7 @@ build_response = function(all_coin_data){
       }
     }
   }
-  row_data_response = c(rep(1, 10),row_data_response)
+  row_data_response = c(rep(0, length(coins)/2),row_data_response)
   return(row_data_response)
 }
 
@@ -309,7 +310,6 @@ plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance",
 ##Compute the data value for principle component #1 at each data point, exclude coin
 pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
 
-pr.out$rotation[,2]
 response = build_response(all_coin_data)
 model = glm(response~pca_var)
 
@@ -325,6 +325,58 @@ cat("Accuracy:", mean(as_binary == response))
 mean(response)
 plot(as_binary)
 
+```
+
+##Fitting A Model - Groups
+```{r, fitting_model_groups}
+
+##Fill NA with zero
+all_coin_data[is.na(all_coin_data)] <- 0
+
+##Exclude the price data
+data_refined = all_coin_data[,-c(1,c(4:7))]
+
+data_refined = data_refined[which(data_refined$Coin%in%Group_1),]
+
+##Exclude the coin factor
+Sigma = cor(data_refined[,-1])
+
+evec = eigen(Sigma)$vectors 
+eval = eigen(Sigma)$values
+
+##Exclude the coin factor
+pr.out = prcomp(data_refined[,-1],  scale=TRUE)
+pve = eval/sum(eval)
+yvec = cumsum(pve)
+
+##Find 80% cut off
+plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
+
+##Lets take first 5 about 80%
+
+##Compute the data value for principle component #1 at each data point, exclude coin
+pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
+
+nrow(data.matrix(data_refined[,-1]))
+
+coins = c(c("eth", "ethereum"),c("etc", "ethereum classic"),c("rep", "augur"), c("steem", "steem"))
+response = build_response(all_coin_data, coins)
+
+model = glm(response[-c(1:4)]~pca_var[-c(1:4),])
+
+summary(model)
+
+##
+outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
+
+as_binary = as.integer(outputs > .5)
+
+cat("Accuracy:", mean(as_binary == response))
+
+mean(response)
+plot(as_binary)
+
+```
 ```
 
 
