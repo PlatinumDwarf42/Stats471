@@ -281,6 +281,30 @@ build_response = function(all_coin_data, coins){
 
 all_coin_data = cbind(build_response(all_coin_data, TOP_COINS), all_coin_data)
 colnames(all_coin_data)[1] = "Response"
+
+
+compute_errors = function(truth, guess){
+  output = c()
+  for(i in 1:length(guess)){
+    if(guess[i] == 1 && truth[i] == 1){
+      output = c(output, 1)
+    }
+    
+    if(truth[i] == 1 && guess[i] == 0){
+       output = c(output, 2)
+    }
+    
+    if(truth[i] == 0  && guess[i] == 1){
+       output = c(output, 3)
+    }
+    
+    if(truth[i] == 0  && guess[i] == 0){
+       output = c(output, 4)
+    }
+  }
+  return(output)
+  
+}
 ```
 
 ##Fitting A Model
@@ -417,59 +441,59 @@ model_3 = build_group_model(Group_3, all_coin_data)
 ## This is near 50% or random
 
 overall_acc_full_model = c()
-up_correct_full_model = c()
+error_full = c()
 
 
 overall_acc_model_1 = c()
-up_correct_model_1 = c()
+error_1 = c()
 
 
 overall_acc_model_2 = c()
-up_correct_model_2 = c()
+error_2 = c()
 
 
 overall_acc_model_3 = c()
-up_correct_model_3 = c()
+error_3 = c()
 
-for(i in 1:100){
-  cat("\nRound ", i)
+for(i in 1:500){
   ##Fill NA with zero
   data = all_coin_data[sample(nrow(all_coin_data), replace = TRUE, nrow(all_coin_data)),]
 
   full_model =  build_all_model(data)
-  overall_acc_full_model = c(overall_acc_full_model, mean(full_model[[1]] == full_model[[2]]))
-  up_correct_full_model = c(up_correct_full_model, mean(which(full_model[[2]] == 1)%in%which(full_model[[1]] ==1)))
+  error_full  = c(error_full, compute_errors(full_model[[1]], full_model[[2]]))
   
   model_1 = build_group_model(Group_1, data)
-  overall_acc_model_1 = c(overall_acc_model_1, mean(model_1[[1]] == model_1[[2]]))
-  up_correct_model_1 = c(up_correct_model_1, mean(which(model_1[[2]] == 1)%in%which(model_1[[1]] ==1)))
+  error_1  = c(error_1, compute_errors(model_1[[1]], model_1[[2]]))
   
   model_2 = build_group_model(Group_2, data)
-  overall_acc_model_2 = c(overall_acc_model_2, mean(model_2[[1]] == model_2[[2]]))
-  up_correct_model_2 = c(up_correct_model_2, mean(which(model_2[[2]] == 1)%in%which(model_2[[1]] ==1)))
+  error_2  = c(error_1, compute_errors(model_2[[1]], model_2[[2]]))
   
   
   model_3 = build_group_model(Group_3, data)
-  overall_acc_model_3 = c(overall_acc_model_3, mean(model_3[[1]] == model_3[[2]]))
-  up_correct_model_3 = c(up_correct_model_3, mean(which(model_3[[2]] == 1)%in%which(model_3[[1]] ==1)))
+  error_3  = c(error_3, compute_errors(model_3[[1]], model_3[[2]]))
 }
 
-
-cat("\nAll Overall Correct:", mean(overall_acc_full_model))
-cat("\nModel 1 Overall Correct:", mean(overall_acc_model_1))
-cat("\nModel 2 Overall Correct:", mean(overall_acc_model_2))
-cat("\nModel 3 Overall Correct:", mean(overall_acc_model_3))
+e_f = c(sum(error_full == 1), sum(error_full == 2), sum(error_full == 3), sum(error_full == 4))
+e_f = (e_f / length(error_full))*100
+matrix(e_f, ncol=2, nrow=2, byrow = TRUE)
 
 
-cat("\nCorrect up that were up ALl:", mean(up_correct_full_model, na.rm = TRUE))
-cat("\nCorrect up that were up Model 1:", mean(up_correct_model_1, na.rm = TRUE))
-cat("\nCorrect up that were up Model 2:", mean(up_correct_model_2, na.rm = TRUE))
-cat("\nCorrect up that were up Model 3:", mean(up_correct_model_3, na.rm = TRUE))
+e_1 = c(sum(error_1 == 1), sum(error_1 == 2), sum(error_1 == 3), sum(error_1 == 4))
+e_1 = (e_1 / length(error_1))*100
+matrix(e_1, ncol=2, nrow=2, byrow = TRUE)
 
-hist(100*up_correct_full_model, breaks=50, main="All: Percent Correct Out of Up Predictions", xlab="Percent")
-hist(100*up_correct_model_1, breaks=50, main="Model 1: Percent Correct Out of Up Predictions", xlab="Percent")
-hist(100*up_correct_model_2, breaks=50, main="Model 2: Percent Correct Out of Up Predictions", xlab="Percent")
-hist(100*up_correct_model_3, breaks=50, main="Model 3: Percent Correct Out of Up Predictions", xlab="Percent")
+
+e_2 = c(sum(error_2 == 1), sum(error_2 == 2), sum(error_2 == 3), sum(error_2 == 4))
+e_2 = (e_2 / length(error_2))*100
+matrix(e_2, ncol=2, nrow=2, byrow = TRUE)
+
+
+e_3 = c(sum(error_3 == 1), sum(error_3 == 2), sum(error_3 == 3), sum(error_3 == 4))
+e_3 = (e_3 / length(error_3))*100
+matrix(e_3, ncol=2, nrow=2, byrow = TRUE)
+
+
+
 
 ```
 
