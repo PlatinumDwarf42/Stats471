@@ -473,21 +473,23 @@ for(i in 1:500){
   error_3  = c(error_3, compute_errors(model_3[[1]], model_3[[2]]))
 }
 
+cat("\n Error Grid: Full Model")
 e_f = c(sum(error_full == 1), sum(error_full == 2), sum(error_full == 3), sum(error_full == 4))
 e_f = (e_f / length(error_full))*100
 matrix(e_f, ncol=2, nrow=2, byrow = TRUE)
 
-
+cat("\n Error Grid: Model 1")
 e_1 = c(sum(error_1 == 1), sum(error_1 == 2), sum(error_1 == 3), sum(error_1 == 4))
 e_1 = (e_1 / length(error_1))*100
 matrix(e_1, ncol=2, nrow=2, byrow = TRUE)
 
-
+cat("\n Error Grid: Model 2")
 e_2 = c(sum(error_2 == 1), sum(error_2 == 2), sum(error_2 == 3), sum(error_2 == 4))
 e_2 = (e_2 / length(error_2))*100
 matrix(e_2, ncol=2, nrow=2, byrow = TRUE)
 
 
+cat("\n Error Grid: Model 3")
 e_3 = c(sum(error_3 == 1), sum(error_3 == 2), sum(error_3 == 3), sum(error_3 == 4))
 e_3 = (e_3 / length(error_3))*100
 matrix(e_3, ncol=2, nrow=2, byrow = TRUE)
