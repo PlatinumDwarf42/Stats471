@@ -259,14 +259,12 @@ Once again, you see that the 20 day one you don't see that hump, but as soon as 
 After looking
 
 ```{r, util}
-
 ##Helps to build the binary responses
 build_response = function(all_coin_data, coins){
   row_data_response = c()
   for(i in 3:365){
     for(j in seq(2, length(coins), 2)){
-      print(j)
-      day_curr = which(all_coin_data$Day.1 == i & all_coin_data$Coin == TOP_COINS[j])
+      day_curr = which(all_coin_data$Day.1 == i & all_coin_data$Coin == coins[j])
       day_before = which(all_coin_data$Day.1 == (i-1) & all_coin_data$Coin == TOP_COINS[j])
       if((all_coin_data$Close[day_curr]-all_coin_data$Close[day_before]) > 0){
           #print("Went up")
@@ -281,103 +279,134 @@ build_response = function(all_coin_data, coins){
   return(row_data_response)
 }
 
+all_coin_data = cbind(build_response(all_coin_data, TOP_COINS), all_coin_data)
+colnames(all_coin_data)[1] = "Response"
 ```
 
 ##Fitting A Model
 ```{r, FittingPCR}
-##Fill NA with zero
-all_coin_data[is.na(all_coin_data)] <- 0
 
-##Exclude the price data
-data_refined = all_coin_data[,-c(1,c(4:7))]
 
-##Exclude the coin factor
-Sigma = cor(data_refined[,-1])
+build_all_model = function(all_coin_data, verbose=FALSE){
+  ##Fill NA with zero
+  all_coin_data[is.na(all_coin_data)] <- 0
+  
+  ##Exclude the price data
+  data_refined = all_coin_data[,-c(1,2,c(5:8))]
+  response = all_coin_data[,1]
+  
+  ##Exclude the coin factor
+  Sigma = cor(data_refined[,-1])
+  
+  evec = eigen(Sigma)$vectors 
+  eval = eigen(Sigma)$values
+  
+  ##Exclude the coin factor
+  pr.out = prcomp(data_refined[,-1],  scale=TRUE)
+  pve = eval/sum(eval)
+  yvec = cumsum(pve)
+  
+  if(verbose){
+    ##Find 80% cut off
+    plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
+  }
+  
+  ##Lets take first 5 about 80%
+  
+  ##Compute the data value for principle component #1 at each data point, exclude coin
+  pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
+  
+  model = glm(response~pca_var)
+  
+  if(verbose){
+    summary(model)
+  }
+  
+  ##
+  outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
+  
+  as_binary = as.integer(outputs > .5)
+  
+  if(verbose){
+    cat("Accuracy:", mean(as_binary == response))
+    plot(as_binary)
+  }
+  return(c(list(response), list(as_binary), list(model)))
+}
 
-evec = eigen(Sigma)$vectors 
-eval = eigen(Sigma)$values
-
-##Exclude the coin factor
-pr.out = prcomp(data_refined[,-1],  scale=TRUE)
-pve = eval/sum(eval)
-yvec = cumsum(pve)
-
-##Find 80% cut off
-plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
-
-##Lets take first 5 about 80%
-
-##Compute the data value for principle component #1 at each data point, exclude coin
-pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
-
-response = build_response(all_coin_data)
-model = glm(response~pca_var)
-
-summary(model)
-
-##
-outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
-
-as_binary = as.integer(outputs > .5)
-
-cat("Accuracy:", mean(as_binary == response))
-
-mean(response)
-plot(as_binary)
-
+full_model =  build_all_model(all_coin_data)
 ```
 
 ##Fitting A Model - Groups
 ```{r, fitting_model_groups}
 
-##Fill NA with zero
-all_coin_data[is.na(all_coin_data)] <- 0
+build_group_model = function(Group, all_coin_data, verbose=FALSE){
+  ##Fill NA with zero
+  all_coin_data[is.na(all_coin_data)] = 0
+  
+  ##Exclude the price data
+  data_refined = all_coin_data[,-c(1,2,c(5:8))]
+  
+  response = all_coin_data[which(data_refined$Coin%in%Group),1]
+  
+  ##Find group that is all coins. This is a bit sloppy
+  if(length(Group) < 9){
+     data_refined = data_refined[which(data_refined$Coin%in%Group),]
+  }
+ 
+  
+  ##Exclude the coin factor
+  Sigma = cor(data_refined[,-1])
+  
+  evec = eigen(Sigma)$vectors 
+  eval = eigen(Sigma)$values
+  
+  ##Exclude the coin factor
+  pr.out = prcomp(data_refined[,-1],  scale=TRUE)
+  pve = eval/sum(eval)
+  yvec = cumsum(pve)
+  
+  ##Find 80% cut off
+  if(verbose){
+    plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
+  }
+  
+  ##Lets take first 5 about 80%
+  
+  ##Compute the data value for principle component #1 at each data point, exclude coin
+  pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
+  
+  model = glm(response~pca_var)
 
-##Exclude the price data
-data_refined = all_coin_data[,-c(1,c(4:7))]
+  if(verbose){
+    summary(model)
+  }
+  
+  ##
+  outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
+  
+  as_binary = as.integer(outputs > .5)
+ 
+  if(verbose){ 
+    cat("Accuracy:", mean(as_binary == response))
+    plot(as_binary)
+  }
+  
+  ## real data, model's guess, model
+  return(c(list(response), list(as_binary), list(model)))
+}
 
-data_refined = data_refined[which(data_refined$Coin%in%Group_1),]
+Group_1 = c(c("eth", "ethereum"),c("etc", "ethereum classic"), c("rep", "augur"), c("steem", "steem"))
+model_1 = build_group_model(Group_1, all_coin_data)
 
-##Exclude the coin factor
-Sigma = cor(data_refined[,-1])
+Group_2 = c(c("dash", "dash"),c("ltc", "litecoin"), c("xmr", "monero"), c("maid", "maidsafecoin"))
+model_2 = build_group_model(Group_2, all_coin_data)
 
-evec = eigen(Sigma)$vectors 
-eval = eigen(Sigma)$values
-
-##Exclude the coin factor
-pr.out = prcomp(data_refined[,-1],  scale=TRUE)
-pve = eval/sum(eval)
-yvec = cumsum(pve)
-
-##Find 80% cut off
-plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
-
-##Lets take first 5 about 80%
-
-##Compute the data value for principle component #1 at each data point, exclude coin
-pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
-
-nrow(data.matrix(data_refined[,-1]))
-
-coins = c(c("eth", "ethereum"),c("etc", "ethereum classic"),c("rep", "augur"), c("steem", "steem"))
-response = build_response(all_coin_data, coins)
-
-model = glm(response[-c(1:4)]~pca_var[-c(1:4),])
-
-summary(model)
-
-##
-outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
-
-as_binary = as.integer(outputs > .5)
-
-cat("Accuracy:", mean(as_binary == response))
-
-mean(response)
-plot(as_binary)
+Group_3 =  c(c("xem", "nem"),c("xrp", "ripple"))
+model_3 = build_group_model(Group_3, all_coin_data)
 
 ```
-```
+
 
 
 ```{r, bootstrap}
@@ -387,56 +416,60 @@ plot(as_binary)
 ## Looking at percent of times it says yes and it is actually yes is more showing
 ## This is near 50% or random
 
-overall_acc = c()
-up_correct = c()
-num_predi_correct = c()
-for(i in 1:50){
+overall_acc_full_model = c()
+up_correct_full_model = c()
+
+
+overall_acc_model_1 = c()
+up_correct_model_1 = c()
+
+
+overall_acc_model_2 = c()
+up_correct_model_2 = c()
+
+
+overall_acc_model_3 = c()
+up_correct_model_3 = c()
+
+for(i in 1:100){
+  cat("\nRound ", i)
   ##Fill NA with zero
-  temp_data = all_coin_data[sample(nrow(all_coin_data), replace = TRUE, nrow(all_coin_data)),]
-  temp_data[is.na(temp_data)] <- 0
+  data = all_coin_data[sample(nrow(all_coin_data), replace = TRUE, nrow(all_coin_data)),]
 
-  ##Exclude the price data
-  data_refined = temp_data[,-c(1,c(4:7))]
-
-  ##Exclude the coin factor
-  Sigma = cor(data_refined[,-1])
-
-  evec = eigen(Sigma)$vectors 
-  eval = eigen(Sigma)$values
-
-  ##Exclude the coin factor
-  pr.out = prcomp(data_refined[,-1],  scale=TRUE)
-  pve = eval/sum(eval)
-  yvec = cumsum(pve)
-
-  ##Lets take first 5 about 80%
-
-  ##Compute the data value for principle component #1 at each data point, exclude coin
-  pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
-
-  response = build_response(all_coin_data)
-  model = glm(response~pca_var)
-
-  summary(model)
-
-  outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
-
-  as_binary = as.integer(outputs > .5)
-
-  #cat("\nAccuracy:", mean(as_binary == response), "# Predicted up:", sum(as_binary))
-  up = which(response == 1)
-  overall_acc = c(overall_acc, mean(as_binary == response))
-  pred_up = which(as_binary == 1) 
-  up_correct = c(up_correct, mean(pred_up%in%up))
-  num_predi_correct = c(num_predi_correct, sum(pred_up%in%up))
-  #cat("\n\tPercent Predicted up Successfully:", mean(pred_up%in%up))
-  if(i %% 10 == 0){
-    print(i)
-  }
+  full_model =  build_all_model(data)
+  overall_acc_full_model = c(overall_acc_full_model, mean(full_model[[1]] == full_model[[2]]))
+  up_correct_full_model = c(up_correct_full_model, mean(which(full_model[[2]] == 1)%in%which(full_model[[1]] ==1)))
+  
+  model_1 = build_group_model(Group_1, data)
+  overall_acc_model_1 = c(overall_acc_model_1, mean(model_1[[1]] == model_1[[2]]))
+  up_correct_model_1 = c(up_correct_model_1, mean(which(model_1[[2]] == 1)%in%which(model_1[[1]] ==1)))
+  
+  model_2 = build_group_model(Group_2, data)
+  overall_acc_model_2 = c(overall_acc_model_2, mean(model_2[[1]] == model_2[[2]]))
+  up_correct_model_2 = c(up_correct_model_2, mean(which(model_2[[2]] == 1)%in%which(model_2[[1]] ==1)))
+  
+  
+  model_3 = build_group_model(Group_3, data)
+  overall_acc_model_3 = c(overall_acc_model_3, mean(model_3[[1]] == model_3[[2]]))
+  up_correct_model_3 = c(up_correct_model_3, mean(which(model_3[[2]] == 1)%in%which(model_3[[1]] ==1)))
 }
 
-cat("Overall Correct:", mean(overall_acc))
-cat("\nCorrect up that were up:", mean(up_correct, na.rm = TRUE))
-hist(100*up_correct, breaks=50, main="Percent Correct Out of Up Predictions", xlab="Percent")
+
+cat("\nAll Overall Correct:", mean(overall_acc_full_model))
+cat("\nModel 1 Overall Correct:", mean(overall_acc_model_1))
+cat("\nModel 2 Overall Correct:", mean(overall_acc_model_2))
+cat("\nModel 3 Overall Correct:", mean(overall_acc_model_3))
+
+
+cat("\nCorrect up that were up ALl:", mean(up_correct_full_model, na.rm = TRUE))
+cat("\nCorrect up that were up Model 1:", mean(up_correct_model_1, na.rm = TRUE))
+cat("\nCorrect up that were up Model 2:", mean(up_correct_model_2, na.rm = TRUE))
+cat("\nCorrect up that were up Model 3:", mean(up_correct_model_3, na.rm = TRUE))
+
+hist(100*up_correct_full_model, breaks=50, main="All: Percent Correct Out of Up Predictions", xlab="Percent")
+hist(100*up_correct_model_1, breaks=50, main="Model 1: Percent Correct Out of Up Predictions", xlab="Percent")
+hist(100*up_correct_model_2, breaks=50, main="Model 2: Percent Correct Out of Up Predictions", xlab="Percent")
+hist(100*up_correct_model_3, breaks=50, main="Model 3: Percent Correct Out of Up Predictions", xlab="Percent")
+
 ```
 
