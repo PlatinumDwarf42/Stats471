@@ -495,7 +495,5 @@ e_3 = (e_3 / length(error_3))*100
 matrix(e_3, ncol=2, nrow=2, byrow = TRUE)
 
 
-
-
 ```
 
