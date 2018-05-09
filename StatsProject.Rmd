@@ -9,9 +9,10 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
+rm(list=ls())
 all_coin_data = read.csv("all_coin_data.csv")
 
+colnames(all_coin_data )
 TOP_COINS = c(c("eth", "ethereum"), c("xrp","ripple"),c("ltc", "litecoin"),c("xmr", "monero"),c("etc", "ethereum classic"),c("dash", "dash"),c("maid", "maidsafecoin"), c("rep", "augur"), c("steem", "steem"), c("xem", "nem"))
 ```
 
