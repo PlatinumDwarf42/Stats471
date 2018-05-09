@@ -359,10 +359,14 @@ build_all_model = function(all_coin_data, verbose=FALSE){
 }
 
 full_model =  build_all_model(all_coin_data)
+
+plot(all_coin_data$Total_Number_Comments[1:364], main="Total Number Comments", xlab="Day", ylab="Total Comments", type='l')
 ```
 
 ##Fitting A Model - Groups
 ```{r, fitting_model_groups}
+
+colnames(all_coin_data)
 
 build_group_model = function(Group, all_coin_data, verbose=FALSE){
   ##Fill NA with zero
@@ -390,6 +394,7 @@ build_group_model = function(Group, all_coin_data, verbose=FALSE){
   pve = eval/sum(eval)
   yvec = cumsum(pve)
   
+  pr.out
   ##Find 80% cut off
   if(verbose){
     plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
@@ -427,7 +432,7 @@ Group_2 = c(c("dash", "dash"),c("ltc", "litecoin"), c("xmr", "monero"), c("maid"
 model_2 = build_group_model(Group_2, all_coin_data)
 
 Group_3 =  c(c("xem", "nem"),c("xrp", "ripple"))
-model_3 = build_group_model(Group_3, all_coin_data)
+model_3 = build_group_model(Group_3, all_coin_data, verbose=TRUE)
 
 ```
 
@@ -440,59 +445,88 @@ model_3 = build_group_model(Group_3, all_coin_data)
 ## Looking at percent of times it says yes and it is actually yes is more showing
 ## This is near 50% or random
 
-overall_acc_full_model = c()
-error_full = c()
+error_full_1 = c()
+error_full_2 = c()
+error_full_3 = c()
+error_full_4 = c()
 
 
-overall_acc_model_1 = c()
-error_1 = c()
+error_1_1 = c()
+error_1_2 = c()
+error_1_3 = c()
+error_1_4 = c()
 
 
-overall_acc_model_2 = c()
-error_2 = c()
+error_2_1 = c()
+error_2_2 = c()
+error_2_3 = c()
+error_2_4 = c()
 
 
-overall_acc_model_3 = c()
-error_3 = c()
+error_3_1 = c()
+error_3_2 = c()
+error_3_3 = c()
+error_3_4 = c()
 
-for(i in 1:500){
+for(i in 1:50){
   ##Fill NA with zero
   data = all_coin_data[sample(nrow(all_coin_data), replace = TRUE, nrow(all_coin_data)),]
 
   full_model =  build_all_model(data)
-  error_full  = c(error_full, compute_errors(full_model[[1]], full_model[[2]]))
+  error_full = compute_errors(full_model[[1]], full_model[[2]])
+  error_full_1  = c(error_full_1, mean(error_full == 1))
+  error_full_2  = c(error_full_2, mean(error_full == 2))
+  error_full_3  = c(error_full_3, mean(error_full == 3))
+  error_full_4  = c(error_full_4, mean(error_full == 4))
   
   model_1 = build_group_model(Group_1, data)
-  error_1  = c(error_1, compute_errors(model_1[[1]], model_1[[2]]))
+  error_1 = compute_errors(model_1[[1]], model_1[[2]])
+  error_1_1  = c(error_1_1, mean(error_1 == 1))
+  error_1_2  = c(error_1_2, mean(error_1 == 2))
+  error_1_3  = c(error_1_3, mean(error_1 == 3))
+  error_1_4  = c(error_1_4, mean(error_1 == 4))
   
   model_2 = build_group_model(Group_2, data)
-  error_2  = c(error_1, compute_errors(model_2[[1]], model_2[[2]]))
+  error_2 = compute_errors(model_2[[1]], model_2[[2]])
+  error_2_1  = c(error_2_1, mean(error_2 == 1))
+  error_2_2  = c(error_2_2, mean(error_2 == 2))
+  error_2_3  = c(error_2_3, mean(error_2 == 3))
+  error_2_4  = c(error_2_4, mean(error_2 == 4))
   
   
   model_3 = build_group_model(Group_3, data)
-  error_3  = c(error_3, compute_errors(model_3[[1]], model_3[[2]]))
+  error_3 = compute_errors(model_3[[1]], model_3[[2]])
+  error_3_1  = c(error_3_1, mean(error_3 == 1))
+  error_3_2  = c(error_3_2, mean(error_3 == 2))
+  error_3_3  = c(error_3_3, mean(error_3 == 3))
+  error_3_4  = c(error_3_4, mean(error_3 == 4))
 }
 
 cat("\n Error Grid: Full Model")
-e_f = c(sum(error_full == 1), sum(error_full == 2), sum(error_full == 3), sum(error_full == 4))
-e_f = (e_f / length(error_full))*100
+e_f = c(mean(error_full_1), mean(error_full_2), mean(error_full_3), mean(error_full_4))
+e_f_sd = 2*c(sd(error_full_1), sd(error_full_2), sd(error_full_3), sd(error_full_4))
 matrix(e_f, ncol=2, nrow=2, byrow = TRUE)
+matrix(e_f_sd, ncol=2, nrow=2, byrow = TRUE)
 
 cat("\n Error Grid: Model 1")
-e_1 = c(sum(error_1 == 1), sum(error_1 == 2), sum(error_1 == 3), sum(error_1 == 4))
-e_1 = (e_1 / length(error_1))*100
+e_1 = c(mean(error_1_1), mean(error_1_2), mean(error_1_3), mean(error_1_4))
+e_1_sd = 2*c(sd(error_1_1), sd(error_1_2), sd(error_1_3), sd(error_1_4))
 matrix(e_1, ncol=2, nrow=2, byrow = TRUE)
+matrix(e_1_sd, ncol=2, nrow=2, byrow = TRUE)
+
 
 cat("\n Error Grid: Model 2")
-e_2 = c(sum(error_2 == 1), sum(error_2 == 2), sum(error_2 == 3), sum(error_2 == 4))
-e_2 = (e_2 / length(error_2))*100
+e_2 = c(mean(error_2_1), mean(error_2_2), mean(error_2_3), mean(error_2_4))
+e_2_sd = 2*c(sd(error_2_1), sd(error_2_2), sd(error_2_3), sd(error_2_4))
 matrix(e_2, ncol=2, nrow=2, byrow = TRUE)
+matrix(e_2_sd, ncol=2, nrow=2, byrow = TRUE)
 
 
 cat("\n Error Grid: Model 3")
-e_3 = c(sum(error_3 == 1), sum(error_3 == 2), sum(error_3 == 3), sum(error_3 == 4))
-e_3 = (e_3 / length(error_3))*100
+e_3 = c(mean(error_3_1), mean(error_3_2), mean(error_3_3), mean(error_3_4))
+e_3_sd = 2*c(sd(error_3_1), sd(error_3_2), sd(error_3_3), sd(error_3_4))
 matrix(e_3, ncol=2, nrow=2, byrow = TRUE)
+matrix(e_3_sd, ncol=2, nrow=2, byrow = TRUE)
 
 
 ```
