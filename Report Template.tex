@@ -1,12 +1,13 @@
 \documentclass[12pt]{article}
 \usepackage{amssymb,amsmath, endnotes,setspace,enumerate,ulem,color,xspace,lscape}
 \usepackage[sort]{natbib}
+\usepackage{multicol}
 \usepackage{graphicx}
 \allowdisplaybreaks[1]
 \normalem
 \newcommand{\textR}[1]{\textcolor{blue}{\texttt{#1}}}
 \newcommand{\R}{\textR{R}}
-
+\setlength{\columnsep}{.01cm}
 \begin{document}
 
 \title{Title of your project report}  
@@ -33,25 +34,118 @@ This is the abstract of your report ...
 \pagenumbering{arabic} % add page numbers to your report
 
 \section{Introduction}\label{intro}
-\includegraphics{images/unnamed.png}
+\indent \indent Recently, cryptocurrencies have started to appear all over social and mainstream media. While the technology behind them is interesting what interests most people is the potential money. With bitcoin increasing over 10x in value during 2017 and the entire cryptocurrency ecosystem being measured in the hundreds of billions malicious actors might be trying to game the system through manipulated social media for their own financial gain.
+\indent One of the main platforms used for cryptocurrency discussions is Reddit. The subreddit /r/CryptoCurrency/ has over 600k worldwide members and is specifically committed to the discussion and distribution of information about cryptocurrencies. 
 
-Cryptocurrencies are a buzzing all over social and mainstream media for many reasons. The technology behind it is interesting but what interest most people is the money that can be made with it. There is a subreddit committed to the discussion and distribution of information about mainstream cryptocurrencies such as Bitcoin and altcoins like Maidsafe. With so much money on the line, we thought it would be interesting to see if anyone has been trying to take advantage through social media. Our goal in this project was to see if we could predict if a cryptocurrency in value would go up using a quantitative measure of media hype.
+Our goal to use the submissions and comments within /r/CryptoCurrency/ as metric of media hype to see if we could predict a cryptocurrency day to day performance .
+
+\section{Gathering Data}\label{datagather}
+\indent Our data set from  /r/CryptoCurrency/ was collected from January 1, 2017 to December 31, 2017 and included all posts and comments. The dataset in total contains 5 million comments, 132k posts and 22k active users, active users being all unique accounts that posted or commented. We investigation will consider the top 10 coins (excluding bitcoin) by market cap on January 1, 2017 which from largest to smallest are as follows: Ethereum, Ripple, Litecoin, Monero, Ethereum Classic, Dash, MaidSafeCoin, Augar, Steem, NEM.
+
+\indent Bitcoin is purposely excluded in our investigation as it is used as a baseline price unit. Each of the top 10 coin?s prices will be considered in bitcoin value. Pricing in terms of bitcoin rather then USD is important as all of the coins we consider are traded directly to bitcoin rather then USD pairs.
 
 
-\section{Statistical Analysis}\label{datagather}
 
-Please add page numbers to your report. Do not split a table across pages. Do not split a word across two lines. It is highly suggested to place the tables and figures close to where they are first mentioned. Please caption figures and tables.
 
+\section{The Data Set}\label{dataset}
+
+	Our data set contained 26 predictor variables computed from the raw post and comment text. Each variable is computed over a single day. Each statistic for a coin has a corresponding control statistic for the day. This is important as the total number of posts and comments increased significantly throughout the year, see Figure XXXX.
+
+The control prediction and coin prediction variables are listed and described (when unclear) below:
+
+\subsection{Control Variables}
+
+ \indent All statistics are computed for over a single day for all posts and comments.
+\begin{enumerate}
+\item Total Number Comments
+\item Total Mean Comment Length
+
+\indent Comment raw text length in characters
+
+\item Total Comment Different Authors
+
+\indent Total unique authors for both comments and posts based on username
+
+\item Total Mean Comment Score Per Comment
+
+\indent The mean comment score corresponds to the mean of the sum of upvotes and downvotes where upvotes and downvotes all have equal weight
+
+\item Total Comment Number Fomo
+
+\indent Number of times ?Fomo? or ?fear of missing out? appears as a literal in raw comment text
+
+\item Total Comment Number Fud
+
+\indent Number of times ?FUD? or ?fear, uncertainty and doubt? appears as a literal in raw comment text
+
+\item Total Number Posts
+
+\indent Total number of posts in /r/CryptoCurrency	
+
+\item Total Post Mean Score
+
+\indent The mean post score corresponds to the mean of the sum of upvotes and downvotes where upvotes and downvotes all have equal weight
+
+\item Total Posts Mean Length
+
+\indent Mean text length of all posts in characters
+
+\item Total Posts Number Different Authors
+
+\indent Number of unique authors over all posts
+	
+\item Total Posts Mean Number Of Comments
+
+\indent Mean number of comments posts receive 
+
+\item Total Posts Number Fomo
+
+\indent Number of times ``Fomo'' or ``fear of missing out'' appears as a literal in raw posts text
+
+\item Total Posts Number ``Fud''
+
+\indent Number of times ``FUD'' or ?fear, uncertainty and doubt? appears as a literal in raw posts text 
+\end{enumerate}
+
+\subsection{Coin Specific Variables}
+
+
+\indent For the coin specific variables the post or comment was determined to be ``for'' the coin if they contained the coins name or the coins trading abbreviation in their raw text. All statistics are computed for each coin over a single day in the same fashion are the control variables. They are listed below and follow the same descriptions are the control variables above:
+\begin{multicols}{2}
+\begin{enumerate}
+\item Total Number Coin Comments
+\item Total Mean Coin Comment Length
+\item Total Number Coin Comments Different Authors
+\item Total Mean Coin Comment Score
+\item Total Coin Comment Number Fomo
+\item Total Coin Comment Number Fud
+\item Total Coin Number Submissions
+\item Total Coin Mean Submissions Score
+\item Total Coin Mean Submissions Length
+\item Total Coin Number Submissions Different Authors
+\item Total Coin Mean Submissions Number Of Comments
+\item Total Coin Submissions Number Fomo
+\item Total Coin Submissions Number Fud
+\end{enumerate}
+\end{multicols}
+
+\section{Preliminary Look}
+\indent Our first step was to look at the bitcoin prices of each coin over the year. We saw that there were three possibly distinct price groups. XXXPLOTS of all of them Upon further inspection, it seemed that that one distinct price group was: Augur, Steem, Ethereum, Ethereum Classic, which we refer to as Group 1. XXXPlots of group 1 They each have a very easy to follow distribution, unimodal, and bell shaped. It seemed that those in Group 1 had a peak between days 100 and 200. Upon further inspection it seemed that they also shared a peak around days 160 to 180. 
+
+\indent The next distinct price group, Group 2, seemed to be: Dash, Litecoin, Monero, Maidsafe. These coins did not have an easy to follow curve like coins from Group 1. They seemed multimodal, but they also seemed to share a specific peak between 200 and 300. XXXPlots of group 2 They all shared a 20 day peak as well between. 
+
+\indent There is finally Group 3, though they were not as complicated to follow as the second group, their trend was not like Group 1 and deserved to be a separate and distinct group. It is possible that this group is bimodal but they share a peak between day 100-200. When we looked closer we saw that this peak was between 120-150, leading us to further believe that this is a distinct group. XXXPlots of Group 3
+
+\indent We could not discern why these coins fell into distinct groups based on the merits of the coins. For example Ethereum and Steem are in the same group. Ethereum is still one of the top traded coins today. Steem is more of a niche coin and is not widely used, yet they fall into the same group. There may be a confounding variable that would be able to help more fully explain the similar trends. It is also possible that they are just random.
 
 \section{Statistical Analysis}
 
-Please add page numbers to your report. Do not split a table across pages. Do not split a word across two lines. It is highly suggested to place the tables and figures close to where they are first mentioned. Please caption figures and tables.
+\indent When we had set out to do this project we knew we wanted to do some kind of prediction of the value of the coin. We knew that with all of this information we would be unable to do a straightforward linear regression of any sort. Our first step was that we had to make all the variables more manageable. The next step was looking at the odds of whether or not the coin would rise in value. Finally we wanted to see how robust our model was. We felt that it would appropriate to build four models. One model would be using all the coins and the other three would be for each distinct group of coins. We wanted to see if separating them into groups would greatly improve the model, which would mean overfitting. Another thing we were looking for was to see if a certain group was making the model perform well while the other one or two were performing poorly.
 
-\section{Conclusions}
+\indent As mentioned above, we have a lot of variables that could be taken into account. They variables can also be correlated. It seemed that the most appropriate step would be to perform Principal Component Analysis, PCA. This technique is used for data sets like ours where we need to take the variables into a lower dimension. There are certain assumptions that need to be met before performing PCA. We are assuming that the variables have a linear relationship since PCA will be unable to detect nonlinear subspaces. An issue with that is we are not sure this holds for all of our variables, but we will hold the assumption that they are. Another assumption that is made before performing PCA is that we have a large and representative sample. There is no reason to believe that our dataset is not representative, let alone comprehensive. Once we performed PCA on all the variables except Coin, Close, High, Low, Open, we saw that to explain 80\% of the variation we need 5 variables. On closer inspection of the components, we could not find any of the variables more significantly weighted than others. This is another drawback of PCA, when compacting the data into a lower dimension you lose some interpretation and understanding of the data.
 
-
-Multi-period volatility forecasts feature prominently in asset pricing, portfolio allocation, risk-management and most other areas of finance where long-horizon measures of risk are necessary. Such forecasts can be constructed in three fundamentally different ways. The first approach is to estimate a horizon-specific model of the volatility, such as a weekly or monthly GARCH\, which can then be used to form direct predictions of volatility over the next week, month, etc. The second approach is to estimate a daily model and then iterate forward the daily forecasts to obtain weekly or monthly predictions. The forecasting literature refers to the first approach as ``direct'' and the second as ``iterated''. A third method is the mixed-data sampling (MIDAS)\ approach introduced by \cite{ghysels_etal_midas-jfe}. 
-
+\indent Our next step was to use those components to fit a logistic regression model. We thought it would be interesting to see if we would be able to predict the odds if a coin went up or not. This made our logistic linear regression model a binomial one. One of the assumptions that could possibly be problematic is that we assume that all the variables are independent. Though we used PCA to deal with collinearity, it does not take away that a comment might influence an up vote and so on and so forth. We are working on the assumption that everyone can think for themselves and is not influenced by one another. There is the assumption, once again, that we need a large data set: we have met this. Due to using the component in our logistic regression, we did not feel it was appropriate to formal equation. For those who would like to see the model with the components fitted, the R code is included in the appendix
+\indent After fitting the 4 models, we wanted to create confidence intervals for how often we are correct when the price goes up, when the price goes down, type I error, type II error. We decided that nonparametric bootstrap would be appropriate since we do not know that distribution of the population we are sampling from. For the assumption of bias, we might have potentially run into an issue. This is because we are testing the model with the same data we used to fit the model. Another assumption that is made is that is that the data set is large enough: there is no reason to believe that the data set is not large enough. When we created our confidence intervals for the above parameters we found that in general out model did not perform very well and had high type II errors. XXXtables here. It seemed that Group 1 is the only group that performs decently but even then, it would not be enough that it would be likely that someone could be exploiting reddit for gain. There is also negative values in our confidence intervals. As we know it is impossible to get a negative amount correct or incorrect, but this shows how much variance is in our model.
 
 \newpage
 
