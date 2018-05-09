@@ -229,22 +229,22 @@ plot(x = all_coin_data$Day.1[which(all_coin_data$Day.1 >= 240 & all_coin_data$Da
 
 ##Helps to build the binary responses
 build_response = function(all_coin_data, coins){
-row_data_response = c()
-for(i in 3:365){
-for(j in seq(2, length(coins), 2)){
-day_curr = which(all_coin_data$Day.1 == i & all_coin_data$Coin == coins[j])
-day_before = which(all_coin_data$Day.1 == (i-1) & all_coin_data$Coin == TOP_COINS[j])
-if((all_coin_data$Close[day_curr]-all_coin_data$Close[day_before]) > 0){
-#print("Went up")
-row_data_response = c(row_data_response, 1)
-}else{
-#print("Went down")
-row_data_response = c(row_data_response, 0)
-}
-}
-}
-row_data_response = c(rep(0, length(coins)/2),row_data_response)
-return(row_data_response)
+  row_data_response = c()
+  for(i in 3:365){
+    for(j in seq(2, length(coins), 2)){
+      day_curr = which(all_coin_data$Day.1 == i & all_coin_data$Coin == coins[j])
+      day_before = which(all_coin_data$Day.1 == (i-1) & all_coin_data$Coin == TOP_COINS[j])
+      if((all_coin_data$Close[day_curr]-all_coin_data$Close[day_before]) > 0){
+        #print("Went up")
+        row_data_response = c(row_data_response, 1)
+      }else{
+        #print("Went down")
+        row_data_response = c(row_data_response, 0)
+      }
+    }
+  }
+  row_data_response = c(rep(0, length(coins)/2),row_data_response)
+  return(row_data_response)
 }
 
 all_coin_data = cbind(build_response(all_coin_data, TOP_COINS), all_coin_data)
@@ -252,25 +252,25 @@ colnames(all_coin_data)[1] = "Response"
 
 
 compute_errors = function(truth, guess){
-output = c()
-for(i in 1:length(guess)){
-if(guess[i] == 1 && truth[i] == 1){
-output = c(output, 1)
-}
-
-if(truth[i] == 1 && guess[i] == 0){
-output = c(output, 2)
-}
-
-if(truth[i] == 0  && guess[i] == 1){
-output = c(output, 3)
-}
-
-if(truth[i] == 0  && guess[i] == 0){
-output = c(output, 4)
-}
-}
-return(output)
+  output = c()
+  for(i in 1:length(guess)){
+    if(guess[i] == 1 && truth[i] == 1){
+      output = c(output, 1)
+    }
+    
+    if(truth[i] == 1 && guess[i] == 0){
+      output = c(output, 2)
+    }
+    
+    if(truth[i] == 0  && guess[i] == 1){
+      output = c(output, 3)
+    }
+    
+    if(truth[i] == 0  && guess[i] == 0){
+      output = c(output, 4)
+    }
+  }
+  return(output)
 
 }
 
