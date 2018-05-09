@@ -279,50 +279,50 @@ compute_errors = function(truth, guess){
 
 
 build_all_model = function(all_coin_data, verbose=FALSE){
-##Fill NA with zero
-all_coin_data[is.na(all_coin_data)] <- 0
+  ##Fill NA with zero
+  all_coin_data[is.na(all_coin_data)] <- 0
+  
+  ##Exclude the price data
+  data_refined = all_coin_data[,-c(1,2,c(5:8))]
+  response = all_coin_data[,1]
+  
+  ##Exclude the coin factor
+  Sigma = cor(data_refined[,-1])
+  
+  evec = eigen(Sigma)$vectors 
+  eval = eigen(Sigma)$values
+  
+  ##Exclude the coin factor
+  pr.out = prcomp(data_refined[,-1],  scale=TRUE)
+  pve = eval/sum(eval)
+  yvec = cumsum(pve)
 
-##Exclude the price data
-data_refined = all_coin_data[,-c(1,2,c(5:8))]
-response = all_coin_data[,1]
+  if(verbose){
+  ##Find 80% cut off
+    plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
+  }
 
-##Exclude the coin factor
-Sigma = cor(data_refined[,-1])
-
-evec = eigen(Sigma)$vectors 
-eval = eigen(Sigma)$values
-
-##Exclude the coin factor
-pr.out = prcomp(data_refined[,-1],  scale=TRUE)
-pve = eval/sum(eval)
-yvec = cumsum(pve)
-
-if(verbose){
-##Find 80% cut off
-plot(yvec, type='b', xlab = "Principal Components",ylab = "Cumulative variance", main = "",ylim=c(0,1))
-}
-
-##Lets take first 5 about 80%
-
-##Compute the data value for principle component #1 at each data point, exclude coin
-pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
-
-model = glm(response~pca_var)
-
-if(verbose){
-summary(model)
-}
+  ##Lets take first 5 about 80%
+  
+  ##Compute the data value for principle component #1 at each data point, exclude coin
+  pca_var = data.matrix(data_refined[,-1])%*%matrix(pr.out$rotation[,1:5], nrow=27, ncol=5)
+  
+  model = glm(response~pca_var)
+  
+  if(verbose){
+    summary(model)
+  }
 
 ##
-outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
-
-as_binary = as.integer(outputs > .5)
-
-if(verbose){
-cat("Accuracy:", mean(as_binary == response))
-plot(as_binary)
-}
-return(c(list(response), list(as_binary), list(model)))
+  outputs = model$coefficients[1] + model$coefficients[2]*pca_var[,1] + model$coefficients[3]*pca_var[,2] + model$coefficients[4]*pca_var[,3] + model$coefficients[5]*pca_var[,4] +model$coefficients[6]*pca_var[,5]
+  
+  as_binary = as.integer(outputs > .5)
+  
+  if(verbose){
+    cat("Accuracy:", mean(as_binary == response))
+    plot(as_binary)
+  }
+  return(c(list(response), list(as_binary), list(model)))
 }
 
 full_model =  build_all_model(all_coin_data)
